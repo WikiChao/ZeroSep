@@ -1,4 +1,3 @@
-import os
 import sys
 import torch
 import torchaudio
@@ -6,8 +5,6 @@ import gradio as gr
 import numpy as np
 import tempfile
 import moviepy.editor as mp
-from PIL import Image, ImageDraw, ImageFont
-import cv2
 
 # --- Debug helper: write messages to debug.log and print to console ---
 def write_debug(message):
@@ -127,7 +124,7 @@ def process_media(
             input_file, 
             ldm_stable.get_fn_STFT(), 
             device=device,
-            stft=('stable-audio' not in model_id),
+            stft=True,
             model_sr=ldm_stable.get_sr()
         )
         write_debug(f"Audio loaded. Shape: {x0.shape}, Sample rate: {sr}, Duration: {duration}")
@@ -153,7 +150,7 @@ def process_media(
             skip = num_diffusion_steps - tstart  # with tstart=50 and steps=50, skip is 0.
             write_debug("tstart: " + str(tstart_tensor.item()) + ", skip steps: " + str(skip))
             
-            write_debug("Starting reverse (editing) process with target prompt.")
+            write_debug("Starting separation process with target prompt.")
             w0_edited, _ = inversion_reverse_process(
                 ldm_stable,
                 xT=wts,
@@ -169,17 +166,14 @@ def process_media(
                 duration=duration,
                 extra_info=extra_info
             )
-            write_debug("Reverse (editing) process complete.")
+            write_debug("Separation process complete.")
             
             write_debug("Decoding edited latent representation.")
             x0_dec = ldm_stable.vae_decode(w0_edited)
-            if 'stable-audio' not in model_id:
-                if x0_dec.dim() < 4:
-                    x0_dec = x0_dec[None, :, :, :]
-                with torch.no_grad():
-                    edited_audio_tensor = ldm_stable.decode_to_mel(x0_dec)
-            else:
-                edited_audio_tensor = x0_dec.detach().clone().cpu().squeeze(0)
+            if x0_dec.dim() < 4:
+                x0_dec = x0_dec[None, :, :, :]
+            with torch.no_grad():
+                edited_audio_tensor = ldm_stable.decode_to_mel(x0_dec)
             write_debug("Decoding complete.")
         
         # Convert the edited audio tensor to a numpy array.

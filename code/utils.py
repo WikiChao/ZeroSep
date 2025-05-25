@@ -5,45 +5,9 @@ import numpy as np
 import torch
 import random
 from typing import Optional, List, Tuple, Dict
-try:
-    from pc_drift import PromptEmbeddings
-except ModuleNotFoundError:
-    from .pc_drift import PromptEmbeddings
 from models import PipelineWrapper
 import torchaudio
 
-
-def load_image(image_path: str, left: int = 0, right: int = 0, top: int = 0, bottom: int = 0,
-               resize: Tuple[int, int] = (512, 512),
-               device: Optional[torch.device] = None) -> torch.Tensor:
-    if type(image_path) is str:
-        from PIL import Image
-        image = np.array(Image.open(image_path).convert('RGB'))[:, :, : 3]
-    else:
-        image = image_path
-
-    import torchvision.transforms as T
-    h, w, c = image.shape
-    left = min(left, w-1)
-    right = min(right, w - left - 1)
-    top = min(top, h - left - 1)
-    bottom = min(bottom, h - top - 1)
-    image = image[top: h-bottom, left:w-right]
-    h, w, c = image.shape
-
-    if h < w:
-        offset = (w - h) // 2
-        image = image[:, offset:offset + h]
-    elif w < h:
-        offset = (h - w) // 2
-        image = image[offset:offset + w]
-    image = np.array(Image.fromarray(image).resize(resize))
-    image = T.functional.to_tensor(image).unsqueeze(0).to(device)
-    image = image * 2 - 1
-    # image = torch.from_numpy(image).float() / 127.5 - 1
-    # image = image.permute(2, 0, 1).unsqueeze(0).to(device)
-
-    return image
 
 
 def get_spec(wav: torch.Tensor, fn_STFT: torch.nn.Module) -> torch.Tensor:
@@ -86,10 +50,6 @@ def load_audio(audio_path: str, fn_STFT, left: int = 0, right: int = 0, device: 
             return waveform * 0.5
 
         waveform = normalize_wav(waveform)
-        # waveform = waveform[None, ...]
-        # waveform = pad_wav(waveform, segment_length)
-
-        # waveform = waveform[0, ...]
         waveform = torch.FloatTensor(waveform)
         duration = waveform.shape[-1] / model_sr
         return waveform, model_sr, duration
@@ -208,24 +168,3 @@ def plot_corrs(args, corrs: List[np.array], in_corrs: List[List[torch.Tensor]],
             xs=np.arange(args.iters - 1), ys=ev_in_corrs,
             keys=np.arange(args.drift_start, args.drift_start - len(in_corrs), -1),
             title=f"Subspace iterations correlations PC#{ev_num + 1}", xname="iter")
-    # logging_dict['norms'] = wandb.plot.line_series(xs=np.arange(args.iters - 1), ys=in_norms,
-    #                                                keys=np.arange(args.drift_start,
-    #                                                args.drift_start - len(in_norms), -1),
-    #                                                title="Subspace iterations norms", xname="iter")
-
-
-def get_text_embeddings(target_prompt: List[str], target_neg_prompt: List[str], ldm_stable: PipelineWrapper
-                        ) -> Tuple[torch.Tensor, PromptEmbeddings, PromptEmbeddings]:
-    text_embeddings_hidden_states, text_embeddings_class_labels, text_embeddings_boolean_prompt_mask = \
-        ldm_stable.encode_text(target_prompt)
-    uncond_embedding_hidden_states, uncond_embedding_class_lables, uncond_boolean_prompt_mask = \
-        ldm_stable.encode_text(target_neg_prompt)
-
-    text_emb = PromptEmbeddings(embedding_hidden_states=text_embeddings_hidden_states,
-                                boolean_prompt_mask=text_embeddings_boolean_prompt_mask,
-                                embedding_class_lables=text_embeddings_class_labels)
-    uncond_emb = PromptEmbeddings(embedding_hidden_states=uncond_embedding_hidden_states,
-                                  boolean_prompt_mask=uncond_boolean_prompt_mask,
-                                  embedding_class_lables=uncond_embedding_class_lables)
-
-    return text_embeddings_class_labels, text_emb, uncond_emb

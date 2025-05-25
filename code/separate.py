@@ -13,12 +13,6 @@ from ddm_inversion.inversion_utils import inversion_forward_process, inversion_r
 from ddm_inversion.ddim_inversion import ddim_inversion, text2image_ldm_stable
 from models import load_model
 from utils import set_reproducability, load_audio, get_spec
-from mir_eval.separation import bss_eval_sources
-
-import os
-os.environ["HF_HOME"] = "/home/cxu-serve/p62/chuang65/checkpoints"
-
-HF_TOKEN = None # Needed for stable audio open. You can leave None when not using it
 
 
 if __name__ == "__main__":
@@ -31,8 +25,7 @@ if __name__ == "__main__":
                                                          "cvssp/audioldm2-large",
                                                          "cvssp/audioldm2-music",
                                                          'declare-lab/tango-full-ft-audio-music-caps',
-                                                         'declare-lab/tango-full-ft-audiocaps',
-                                                         "stabilityai/stable-audio-open-1.0"
+                                                         'declare-lab/tango-full-ft-audiocaps'
                                                          ],
                         default="cvssp/audioldm2-music", help='Audio diffusion model to use')
 
@@ -67,9 +60,6 @@ if __name__ == "__main__":
     args.eta = 1.
     args.numerical_fix = True
     args.test_rand_gen = False
-
-    if args.model_id == "stabilityai/stable-audio-open-1.0" and HF_TOKEN is None:
-        raise ValueError("HF_TOKEN is required for stable audio model")
 
     set_reproducability(args.seed, extreme=False)
     device = f"cuda:{args.device_num}"
@@ -113,9 +103,9 @@ if __name__ == "__main__":
     args.tstart = torch.tensor(args.tstart, dtype=torch.int)
     skip = args.num_diffusion_steps - args.tstart
 
-    ldm_stable = load_model(model_id, device, args.num_diffusion_steps, token=HF_TOKEN)
+    ldm_stable = load_model(model_id, device, args.num_diffusion_steps)
     x0, sr, duration = load_audio(args.init_aud, ldm_stable.get_fn_STFT(), device=device,
-                                  stft=('stable-audio' not in model_id), model_sr=ldm_stable.get_sr())
+                                 stft=True, model_sr=ldm_stable.get_sr())
     torch.cuda.empty_cache()
     with inference_mode():
         w0 = ldm_stable.vae_encode(x0)
@@ -179,25 +169,12 @@ if __name__ == "__main__":
     # vae decode image
     with inference_mode():
         x0_dec = ldm_stable.vae_decode(w0)
-        if 'stable-audio' not in model_id:
-            if x0_dec.dim() < 4:
-                x0_dec = x0_dec[None, :, :, :]
-            min_freq_shape = min(x0.shape[2], x0_dec.shape[2])
-            freq_mask = x0[:,:,:min_freq_shape] / (x0_dec[:,:,:min_freq_shape] + 1e-5)
-            # print(freq_mask.max(), freq_mask.min())
-            # print(freq_mask)
-            with torch.no_grad():
-                audio = ldm_stable.decode_to_mel(x0_dec)
-                orig_audio = ldm_stable.decode_to_mel(x0)
-        else:
-            audio = x0_dec.detach().clone().cpu().squeeze(0)
-            orig_audio = x0.detach().clone().cpu()
-            x0_dec = get_spec(x0_dec, ldm_stable.get_fn_STFT())
-            x0 = get_spec(x0.unsqueeze(0), ldm_stable.get_fn_STFT())
-
-            if x0_dec.dim() < 4:
-                x0_dec = x0_dec[None, :, :, :]
-                x0 = x0[None, :, :, :]
+        if x0_dec.dim() < 4:
+            x0_dec = x0_dec[None, :, :, :]
+        min_freq_shape = min(x0.shape[2], x0_dec.shape[2])
+        with torch.no_grad():
+            audio = ldm_stable.decode_to_mel(x0_dec)
+            orig_audio = ldm_stable.decode_to_mel(x0)
 
     # same output
     current_GMT = time.gmtime()
@@ -219,10 +196,7 @@ if __name__ == "__main__":
     save_full_path_spec = os.path.join(save_path, image_name_png + ".png")
     save_full_path_wave = os.path.join(save_path, image_name_png + ".wav")
     save_full_path_origwave = os.path.join(save_path, "orig.wav")
-    # Use a 3x3 average pooling (you can adjust kernel_size for more/less smoothing)
-    # freq_mask = torch.nn.functional.avg_pool2d(freq_mask, kernel_size=3, stride=1, padding=1)
-    # x0_dec = freq_mask
-    # x0_dec = (x0_dec > 1).float()
+
     if x0_dec.shape[2] > x0_dec.shape[3]:
         x0_dec = x0_dec[0, 0].T.cpu().detach().numpy()
         x0 = x0[0, 0].T.cpu().detach().numpy()
@@ -232,151 +206,6 @@ if __name__ == "__main__":
     plt.imsave(save_full_path_spec, x0_dec)
     torchaudio.save(save_full_path_wave, audio, sample_rate=sr)
     torchaudio.save(save_full_path_origwave, orig_audio, sample_rate=sr)
-    
-    #import numpy as np
-    # Load the reference audio (tensor shape: [channels, samples])
-    #ref_audio, sr = torchaudio.load(args.init_aud)
-    #audio_channel = ref_audio[0]
-
-    # Set parameters for the STFT/ISTFT.
-    # n_fft = 1024            # FFT window size
-    # hop_length = n_fft // 4  # hop length
-    # # --- Extract magnitude and phase using STFT ---
-    # # Using torch.stft with return_complex=True to obtain complex output.
-    # stft_out = torch.stft(audio_channel, n_fft=n_fft, hop_length=hop_length, return_complex=True)
-    # # Extract magnitude and phase.
-    # magnitude = stft_out.abs()
-    # phase = stft_out.angle()
-    # # To interpolate in both frequency and time dimensions, first add batch and channel dimensions.
-    # # Expected shape for bilinear interpolation is [N, C, H, W]. Here, H corresponds to frequency, W to time.
-    # mask_2d = freq_mask.transpose(2,3)  # Now shape: [1, 1, orig_freq, orig_time]
-    # # Define target shape as the shape of our magnitude ([freq_bins, time_frames]).
-    # target_shape = (magnitude.shape[0], magnitude.shape[1])
-    # # Use bilinear interpolation to resize the mask.
-    # mask_resized = torch.nn.functional.interpolate(
-    #     mask_2d, size=target_shape, mode='bilinear', align_corners=False
-    # )
-    # # Remove the extra dimensions: now mask_resized has shape [freq_bins, time_frames].
-    # mask_resized = mask_resized.squeeze(0).squeeze(0)
-    # # Ensure the mask is on the same device as magnitude.
-    # mask_resized = mask_resized.to(magnitude.device)
-    
-    # mask_resized = (mask_resized > 1.).float()
-    # # mask_resized = mask_resized.clamp(0,5)
-    # # ----- Apply the Mask on the Magnitude and Reconstruct the Audio -----
-    # masked_magnitude = magnitude * mask_resized
-    # # --- Convert back to audio ---
-    # # Reconstruct the complex STFT from the masked magnitude and original phase.
-    # reconstructed_stft = masked_magnitude * torch.exp(1j * phase)
-    # reconstructed_audio = torch.istft(reconstructed_stft, n_fft=n_fft, hop_length=hop_length)
-
-
-    # # ----- Define Parameters -----
-    # n_fft = 1024            # FFT window size
-    # hop_length = n_fft // 4  # hop length
-    # n_mels = 64             # Number of mel bins
-
-    # # ----- Compute Mel Spectrogram -----
-    # mel_transform = torchaudio.transforms.MelSpectrogram(
-    #     sample_rate=sr,
-    #     n_fft=n_fft,
-    #     hop_length=hop_length,
-    #     n_mels=n_mels
-    # )
-    # # Compute the mel spectrogram; shape: [n_mels, time_frames]
-    # mel_spec = mel_transform(audio_channel)
-
-    # # ----- Create a Dummy Mel Mask and Threshold It -----
-    # # For demonstration, we create a dummy mask with the same frequency dimension (n_mels)
-    # # but with a time dimension that is half the length of mel_spec.
-    # orig_mel = mel_spec.shape[0]           # Expected to be n_mels (64)
-    # orig_time = mel_spec.shape[1] // 2       # Half the number of time frames
-
-    # # Clone the mask to allow in-place updates.
-    # mel_mask = freq_mask.clone()
-    # # # Apply threshold: values > 0.5 set to 1, else set to 0.
-    # # mel_mask[mel_mask > 1] = 1
-    # # mel_mask[mel_mask <= 0.5] = 0
-    # mel_mask = (mel_mask>1).float()
-
-    # # ----- Interpolate the Mel Mask to the Full Mel Spec Dimensions -----
-    # # The bilinear interpolation function expects input in [N, C, H, W] format.
-    # mask_2d = mel_mask.transpose(2,3) # New shape: [1, 1, orig_mel, orig_time]
-    # target_shape = (mel_spec.shape[0], mel_spec.shape[1])  # Desired shape: [n_mels, time_frames]
-
-    # mask_resized = torch.nn.functional.interpolate(
-    #     mask_2d, size=target_shape, mode='bilinear', align_corners=False
-    # )
-    # # Remove extra dimensions so that mask_resized has shape: [n_mels, time_frames]
-    # mask_resized = mask_resized.squeeze(0).squeeze(0).to(mel_spec.device)
-
-    # # ----- Apply the Mask on the Mel Spectrogram -----
-    # masked_mel_spec = mel_spec * mask_resized
-
-    # # ----- Invert the Mel Spectrogram to Waveform -----
-    # # First, convert the mel spectrogram back to a linear-scale spectrogram.
-    # # Number of frequency bins in the linear spectrogram corresponding to n_fft is: n_stft = n_fft//2 + 1
-    # n_stft = n_fft // 2 + 1
-    # inv_mel_transform = torchaudio.transforms.InverseMelScale(
-    #     n_stft=n_stft,
-    #     n_mels=n_mels,
-    #     sample_rate=sr
-    # )
-    # # Inverse transform from mel to linear spectrogram.
-    # linear_spec = inv_mel_transform(masked_mel_spec)
-
-    # # Reconstruction of the waveform from the linear spectrogram is not trivial.
-    # # Here, we use the Griffin–Lim algorithm to approximate the inverse STFT.
-    # griffin_lim = torchaudio.transforms.GriffinLim(
-    #     n_fft=n_fft,
-    #     hop_length=hop_length
-    # )
-    # reconstructed_audio = griffin_lim(linear_spec)
-
-
-
-    # def normalize_audio(audio):
-    #     """
-    #     Normalize a tensor to the [-1, 1] range.
-    #     Assumes audio is not already in that range.
-    #     """
-    #     max_val = audio.abs().max()
-    #     if max_val > 0:
-    #         return audio / max_val
-    #     return audio
-
-    # # normailze audio and orig_audio to [-1, 1]
-    # audio_norm    = normalize_audio(audio)
-    # orig_audio_norm = normalize_audio(orig_audio)
-    # audio_norm    = audio
-    # orig_audio_norm = orig_audio
-    # ref_audio_norm  = normalize_audio(ref_audio)
-    # # make them the same length and calculate the mask
-    # min_length = min(audio_norm.shape[-1], orig_audio_norm.shape[-1])
-    # audio_norm      = audio_norm[..., :min_length]
-    # orig_audio_norm = orig_audio_norm[..., :min_length]
-    # # apply mask on ref_audio
-    # mask = audio_norm.abs() / (orig_audio_norm.abs() + 1e-5) 
-    # mask = mask.clamp(-1, 1)
-    # # reshape the mask as same length as ref_audio
-    # # --- Step 4: Reshape/interpolate the mask to match ref_audio ---
-    # if ref_audio_norm.shape[-1] != mask.shape[-1]:
-    #     # Add batch and channel dimensions for interpolation: [N, C, L]
-    #     mask = mask.unsqueeze(0)
-    #     # Interpolate the mask using linear mode along time dimension
-    #     mask = torch.nn.functional.interpolate(mask, size=ref_audio_norm.shape[-1], mode='linear', align_corners=False)
-    #     # Remove extra dimensions
-    #     mask = mask.squeeze(0)
-    # reconstructed_audio = ref_audio * mask
-    # reconstructed_audio = normalize_audio(reconstructed_audio)
-
-    # torchaudio.save("reconstructed_audio.wav", reconstructed_audio.unsqueeze(0), sample_rate=sr)
-    # L = min(reconstructed_audio.shape[0], ref_audio.shape[1])
-    # sdr, sir, sar, _ = bss_eval_sources(
-    # np.asarray(ref_audio[0,:L]),
-    # np.asarray(reconstructed_audio[0, :L]),
-    # False)
-    # print(sdr, sir, sar)
 
     if not args.wandb_disable:
         logging_dict = {'orig': wandb.Audio(orig_audio.squeeze(), caption='orig', sample_rate=sr),

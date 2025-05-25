@@ -6,6 +6,14 @@
 ZeroSep is a **training-free** audio source separation framework that repurposes pre-trained text-guided diffusion models for zero-shot separation.  
 No fine-tuning, no task-specific data—just latent inversion + text-conditioned denoising to isolate **any** sound you describe.
 
+<div align="center">
+  <video width="100%" controls>
+    <source src="assets/zerosep_demo.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <p><i>Demo video: ZeroSep separating speech from a music-speech mix with a simple text prompt.</i></p>
+</div>
+
 ---
 
 ## 🚀 Features
@@ -25,11 +33,11 @@ No fine-tuning, no task-specific data—just latent inversion + text-conditioned
    git clone https://github.com/WikiChao/ZeroSep.git
    cd ZeroSep
 
-2. *(Optional)* Create & activate a virtual environment
+2. *(Optional)* Create & activate a Conda environment
 
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
+   conda create -n zerosep python=3.9
+   conda activate zerosep
    ```
 3. **Install** dependencies
 
@@ -141,8 +149,3 @@ This project is licensed under the **MIT License** – see [LICENSE](LICENSE) fo
 * **AudioLDM** & **AudioLDM2** (Liu et al.) for the diffusion backbones
 * **Tango** (Ghosal et al.) for additional model support
 * **Gradio** for the user-friendly web UI
-
-```
-
-Simply copy the above into your `README.md` and adjust any paths or filenames as needed.
-```
