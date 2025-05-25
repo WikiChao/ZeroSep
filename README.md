@@ -149,3 +149,4 @@ This project is licensed under the **MIT License** – see [LICENSE](LICENSE) fo
 * **AudioLDM** & **AudioLDM2** (Liu et al.) for the diffusion backbones
 * **Tango** (Ghosal et al.) for additional model support
 * **Gradio** for the user-friendly web UI
+* [**AudioEditingCode**](https://github.com/HilaManor/AudioEditingCode) - Our work is heavily built upon their implementation. Please consider giving their repository a star as well!
