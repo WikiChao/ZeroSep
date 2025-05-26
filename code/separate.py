@@ -16,9 +16,9 @@ from utils import set_reproducability, load_audio, get_spec
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run text-based audio editing.')
+    parser = argparse.ArgumentParser(description='Run text-based audio source separation.')
     parser.add_argument("--device_num", type=int, default=0, help="GPU device number")
-    parser.add_argument('-s', "--seed", type=int, default=None, help="GPU device number")
+    parser.add_argument('-s', "--seed", type=int, default=None, help="Random seed for reproducibility")
     parser.add_argument("--model_id", type=str, choices=["cvssp/audioldm-s-full-v2",
                                                          "cvssp/audioldm-l-full",
                                                          "cvssp/audioldm2",
@@ -29,7 +29,7 @@ if __name__ == "__main__":
                                                          ],
                         default="cvssp/audioldm2-music", help='Audio diffusion model to use')
 
-    parser.add_argument("--init_aud", type=str, required=True, help='Audio to invert and extract PCs from')
+    parser.add_argument("--init_aud", type=str, required=True, help='Audio mixture to separate sources from')
     parser.add_argument("--cfg_src", type=float, nargs='+', default=[3],
                         help='Classifier-free guidance strength for forward process')
     parser.add_argument("--cfg_tar", type=float, nargs='+', default=[12],
@@ -38,18 +38,18 @@ if __name__ == "__main__":
                         help="Number of diffusion steps. TANGO and AudioLDM2 are recommended to be used with 200 steps"
                              ", while AudioLDM is recommeneded to be used with 100 steps")
     parser.add_argument("--target_prompt", type=str, nargs='+', default=[""], required=True,
-                        help="Prompt to accompany the reverse process. Should describe the wanted edited audio.")
+                        help="Prompt to accompany the reverse process. Should describe the target sound to separate.")
     parser.add_argument("--source_prompt", type=str, nargs='+', default=[""],
-                        help="Prompt to accompany the forward process. Should describe the original audio.")
+                        help="Prompt to accompany the forward process. Should describe the original mixture.")
     parser.add_argument("--target_neg_prompt", type=str, nargs='+', default=[""],
                         help="Negative prompt to accompany the inversion and generation process")
     parser.add_argument("--tstart", type=int, nargs='+', default=[100],
-                        help="Diffusion timestep to start the reverse process from. Controls editing strength.")
+                        help="Diffusion timestep to start the reverse process from. Controls separation strength.")
     parser.add_argument("--results_path", type=str, default="results", help="path to dump results")
 
     parser.add_argument("--cutoff_points", type=float, nargs='*', default=None)
     parser.add_argument("--mode", default="ours", choices=['ours', 'ddim'],
-                        help="Run our editing or DDIM inversion based editing.")
+                        help="Run our separation or DDIM inversion based separation.")
     parser.add_argument("--fix_alpha", type=float, default=0.1)
 
     parser.add_argument('--wandb_name', type=str, default=None)
@@ -135,7 +135,7 @@ if __name__ == "__main__":
                                  "__neg__" + "__".join([x.replace(" ", "_") for x in args.target_neg_prompt]))
         os.makedirs(save_path, exist_ok=True)
 
-        if args.mode == "ours":
+        if args.mode == "ddpm":
             # reverse process (via Zs and wT)
             w0, _ = inversion_reverse_process(ldm_stable,
                                               xT=wts if not args.test_rand_gen else torch.randn_like(wts),
