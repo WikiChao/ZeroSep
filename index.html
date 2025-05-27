@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZeroSep: Separate Anything in Audio with Zero Training</title>
+    <style>
+        /* Root Variables for Consistent Theming */
+:root {
+    --primary-color: #3b82f6;
+    --primary-dark: #2563eb;
+    --secondary-color: #10b981;
+    --secondary-dark: #059669;
+    --text-color: #1f2937;
+    --text-light: #6b7280;
+    --bg-light: #f9fafb;
+    --bg-white: #ffffff;
+    --border-color: #e5e7eb;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    --radius-sm: 0.25rem;
+    --radius-md: 0.375rem;
+    --radius-lg: 0.5rem;
+    --transition: all 0.3s ease;
+}
+
+body {
+    font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.7;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    color: var(--text-color);
+    background-color: var(--bg-light);
+}
+
+/* Modern Header */
+header {
+    text-align: center;
+    padding: 40px 20px 30px;
+    margin-bottom: 40px;
+    background-color: var(--bg-white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+header::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    font-weight: 800;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+}
+
+h2 {
+    font-size: 1.8rem;
+    margin-top: 40px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-color);
+    color: var(--primary-color);
+    font-weight: 700;
+}
+
+/* Modern Authors Section */
+.authors {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 25px;
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-white);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+}
+
+.authors::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+}
+
+.authors-list {
+    font-size: 1.15rem;
+    margin-bottom: 20px;
+    line-height: 1.8;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 18px;
+}
+
+.author {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    padding: 6px 12px;
+    background-color: var(--bg-light);
+    border-radius: 20px;
+    transition: var(--transition);
+}
+
+.author:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+.affiliation-marker {
+    font-size: 0.7rem;
+    vertical-align: super;
+    color: var(--primary-color);
+    font-weight: bold;
+    margin-left: 2px;
+}
+
+.affiliations {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    font-size: 1rem;
+    color: var(--text-light);
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.affiliation {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+/* Publication Links */
+.publication-links {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-top: 25px;
+    flex-wrap: wrap;
+}
+
+.link-block {
+    transition: var(--transition);
+}
+
+.link-block:hover {
+    transform: translateY(-3px);
+}
+
+.external-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+}
+
+.external-link:hover {
+    background-color: var(--primary-dark);
+    box-shadow: var(--shadow-md);
+}
+
+.external-link .icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Modern Navigation */
+.nav-container {
+    position: sticky;
+    top: 0;
+    background-color: rgba(255, 255, 255, 0.95);
+    padding: 15px 0;
+    border-radius: var(--radius-lg);
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+    backdrop-filter: blur(10px);
+    margin-bottom: 30px;
+}
+
+.nav-menu {
+    display: flex;
+    justify-content: center;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    gap: 8px;
+}
+
+.nav-menu li {
+    margin: 0;
+}
+
+.nav-menu a {
+    text-decoration: none;
+    color: var(--text-color);
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 30px;
+    transition: var(--transition);
+    display: inline-block;
+}
+
+.nav-menu a:hover {
+    color: var(--primary-color);
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Section Styling */
+.section {
+    margin-bottom: 60px;
+    padding: 30px;
+    border-radius: var(--radius-lg);
+    background-color: var(--bg-white);
+    box-shadow: var(--shadow-md);
+}
+
+/* Tabs for audio examples */
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.tab {
+    padding: 12px 24px;
+    cursor: pointer;
+    background-color: var(--bg-light);
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    margin-right: 5px;
+    border-radius: 8px 8px 0 0;
+    transition: var(--transition);
+    font-weight: 500;
+}
+
+.tab:hover {
+    background-color: rgba(59, 130, 246, 0.05);
+}
+
+.tab.active {
+    background-color: var(--bg-white);
+    border-bottom: 1px solid var(--bg-white);
+    margin-bottom: -1px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* Comparison Grid */
+.comparison-grid {
+    display: grid;
+    grid-template-columns: 200px repeat(7, 1fr);
+    gap: 15px;
+    margin-top: 25px;
+    align-items: center;
+}
+
+.comparison-header {
+    font-weight: bold;
+    text-align: center;
+    padding: 10px 0;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+}
+
+.prompt-cell {
+    font-weight: bold;
+    background-color: #eef5ff;
+    padding: 10px;
+    border-radius: 5px;
+    align-self: center;
+}
+
+.audio-cell {
+    text-align: center;
+    padding: 10px 5px;
+}
+
+.audio-cell audio {
+    width: 100%;
+    height: 40px;
+}
+
+/* Example card layout */
+.example-card {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.example-card h3 {
+    margin-top: 0;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+/* Method comparison indicator */
+.performance-indicator {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+.performance-bar {
+    height: 100%;
+    border-radius: 4px;
+    background-color: #4CAF50;
+}
+
+.footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .comparison-header, .prompt-cell, .audio-cell {
+        margin-bottom: 10px;
+    }
+    
+    .nav-menu {
+        flex-wrap: wrap;
+    }
+    
+    .nav-menu li {
+        margin: 5px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .authors-list {
+        font-size: 1rem;
+        gap: 8px;
+    }
+    
+    .author {
+        padding: 5px 10px;
+    }
+    
+    .affiliations {
+        font-size: 0.9rem;
+    }
+    
+    .section {
+        padding: 20px;
+    }
+}
+
+/* Add these styles to fix the overflowing video */
+.demo-video {
+    margin: 30px 0;
+    width: 100%;
+}
+
+.video-container {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    max-width: 100%;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    background-color: #000;
+}
+
+.video-container video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.demo-video p {
+    text-align: center;
+    margin-top: 15px;
+    color: var(--text-light);
+    font-style: italic;
+}
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ZeroSep: Separate Anything in Audio with Zero Training</h1>
+        <div class="authors">
+            <div class="authors-list">
+                <span class="author">Chao Huang<span class="affiliation-marker">1</span></span>
+                <span class="author">Yuesheng Ma<span class="affiliation-marker">2</span></span>
+                <span class="author">Junxuan Huang<span class="affiliation-marker">3</span></span>
+                <span class="author">Susan Liang<span class="affiliation-marker">1</span></span>
+                <span class="author">Yunlong Tang<span class="affiliation-marker">1</span></span>
+                <span class="author">Jing Bi<span class="affiliation-marker">1</span></span>
+                <span class="author">Wenqiang Liu<span class="affiliation-marker">3</span></span>
+                <span class="author">Nima Mesgarani<span class="affiliation-marker">2</span></span>
+                <span class="author">Chenliang Xu<span class="affiliation-marker">1</span></span>
+            </div>
+            <div class="affiliations">
+                <span class="affiliation"><span class="affiliation-marker">1</span> University of Rochester</span> 
+                <span class="affiliation"><span class="affiliation-marker">2</span> Columbia University</span> 
+                <span class="affiliation"><span class="affiliation-marker">3</span> Tencent</span>
+            </div>
+        </div>
+        <div class="column has-text-centered">
+            <div class="publication-links">
+                <span class="link-block">
+                    <a href="https://arxiv.org/abs/placeholder" target="_blank" rel="noopener noreferrer" class="external-link">
+                        <span class="icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
+                                <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                            </svg>
+                        </span>
+                        <span>arXiv Paper</span>
+                    </a>
+                </span>
+                <span class="link-block">
+                    <a href="https://github.com/ZeroSep/ZeroSep" target="_blank" rel="noopener noreferrer" class="external-link">
+                        <span class="icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                            </svg>
+                        </span>
+                        <span>Code</span>
+                    </a>
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <div class="nav-container">
+        <ul class="nav-menu">
+            <li><a href="#overview">Overview</a></li>
+            <li><a href="#demo">Demo Video</a></li>
+            <li><a href="#comparisons">Method Comparisons</a></li>
+        </ul>
+    </div>
+
+    <div id="overview" class="section">
+        <h2>Overview</h2>
+        <p>ZeroSep is a novel approach for audio source separation that requires zero training. Users can specify any sound source they want to separate using natural language prompts. Our method leverages pretrained audio diffusion models to achieve separation without requiring specialized training data or fine-tuning.</p>
+    </div>
+
+    <div id="demo" class="section">
+        <h2>Demo Video</h2>
+        <p>This demo video showcases our user-friendly interface for real-world audio source separation. Users can isolate any sound source through natural language prompts, and ZeroSep performs zero-shot separation without any training requirements. <b>All code and demo implementations are available in our GitHub repository.</b></p>
+        <div class="demo-video">
+            <div class="video-container">
+                <video controls preload="metadata">
+                    <source src="./demo_v2.mp4" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            <p>ZeroSep interface demonstration: separating audio sources using natural language prompts</p>
+        </div>
+    </div>
+
+    <div id="comparisons" class="section">
+        <h2>Comparison with State-of-the-Art Methods</h2>
+        <p>Below are comparison results on the MUSIC and AVE datasets. We compare ZeroSep against training-based methods (<span style="color: #3366cc; font-weight: bold;">LASS-Net</span>, <span style="color: #3366cc; font-weight: bold;">AudioSep</span>, <span style="color: #3366cc; font-weight: bold;">FlowSep</span>) and training-free methods (<span style="color: #009933; font-weight: bold;">AudioEdit</span> and <span style="color: #009933; font-weight: bold;">ZeroSep (Ours)</span>). The natural language prompt used for source specification is shown at the beginning of each row.</p>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('results')"> Results</div>
+        </div>
+        
+        <div id="results" class="tab-content active">
+            <div class="example-card">
+                <div class="comparison-grid">
+                    <div class="comparison-header">Prompt</div>
+                    <div class="comparison-header">Mixture</div>
+                    <div class="comparison-header">Ground Truth</div>
+                    <div class="comparison-header" style="background-color: #e6f0ff; color: #3366cc;">LASS-Net<br><small>(Training-based)</small></div>
+                    <div class="comparison-header" style="background-color: #e6f0ff; color: #3366cc;">AudioSep<br><small>(Training-based)</small></div>
+                    <div class="comparison-header" style="background-color: #e6f0ff; color: #3366cc;">FlowSep<br><small>(Training-based)</small></div>
+                    <div class="comparison-header" style="background-color: #e6fff2; color: #009933;">AudioEdit<br><small>(Training-free)</small></div>
+                    <div class="comparison-header" style="background-color: #e6fff2; color: #009933;">ZeroSep<br><small>(Ours, Training-free)</small></div>
+
+                    <div class="prompt-cell">"tuba"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/FlowSep/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"cello"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/gt2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"accordion"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"flute"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/gt2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/tuba-VA1EolcDwZI+cello--Gdh8N_KpLY/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/accordion-QaOUijKCqZU+flute-kbTy_5o6AB4/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"xylophone"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/xylophone-5lm9laLSORc+trumpet-I2QXo4mGeRE/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+        
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"chainsaw"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-9ummbDsgFM-Chainsaw+1NYCiPBzn-E-Accordion/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"frying food"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"Banjo"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/gt2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/3e85HcbgUu4-Frying (food)+0VFJ5fVLe_A-Banjo/pred2.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"Speech"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-0O7GsELcIQ-Male speech, man speaking+PRriMdEO23I-Shofar/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"Speech"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/-X4Ir4_DY5E-Male speech, man speaking+4Oxt706phPE-Rodents, rats, mice/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+                <div class="comparison-grid">
+
+                    <div class="prompt-cell">"Church Bell"</div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/orig1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/gt1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/Lass/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/AudioSep/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/FlowSep/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="separation results/AudioEdit/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                    
+                    <div class="audio-cell">
+                        <audio controls>
+                            <source src="./separation results/Ours/b_CLr2QHAVA-Church bell+7S8eTN2BvtU-Toilet flush/pred1.wav" type="audio/wav">
+                        </audio>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>ZeroSep: Separate Anything in Audio with Zero Training | University of Rochester, Columbia University, Tencent</p>
+    </div>
+
+    <script>
+        function switchTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Deactivate all tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Activate the selected tab and content
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        }
+    </script>
+
+<!-- Add this before closing body tag -->
+<button id="back-to-top" title="Back to top">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="19" x2="12" y2="5"></line>
+        <polyline points="5 12 12 5 19 12"></polyline>
+    </svg>
+</button>
+
+<style>
+    #back-to-top {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        display: none;
+        transition: var(--transition);
+        z-index: 1000;
+        box-shadow: var(--shadow-md);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    #back-to-top:hover {
+        background-color: var(--primary-dark);
+        transform: translateY(-5px);
+    }
+</style>
+
+<script>
+    // Existing switchTab function
+    function switchTab(tabName) {
+        // Hide all tab contents
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabContents.forEach(content => {
+            content.classList.remove('active');
+        });
+        
+        // Deactivate all tabs
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Activate the selected tab and content
+        document.getElementById(tabName).classList.add('active');
+        document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`).classList.add('active');
+    }
+
+    // New scroll functions
+    document.addEventListener('DOMContentLoaded', function() {
+        // Back to top button
+        const backToTopButton = document.getElementById('back-to-top');
+        
+        window.onscroll = function() {
+            if (document.body.scrollTop > 300 || document.documentElement.scrollTop > 300) {
+                backToTopButton.style.display = "flex";
+            } else {
+                backToTopButton.style.display = "none";
+            }
+        };
+        
+        backToTopButton.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('.nav-menu a').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                
+                window.scrollTo({
+                    top: targetElement.offsetTop - 100,
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Highlight active nav item based on scroll position
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.nav-menu a');
+        
+        function updateActiveNav() {
+            let currentSection = '';
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 150;
+                const sectionHeight = section.offsetHeight;
+                
+                if (window.scrollY >= sectionTop && window.scrollY < sectionTop + sectionHeight) {
+                    currentSection = section.getAttribute('id');
+                }
+            });
+            
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').substring(1) === currentSection) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        window.addEventListener('scroll', updateActiveNav);
+        updateActiveNav();
+    });
+</script>
+</body>
+</html>
