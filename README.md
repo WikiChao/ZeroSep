@@ -62,7 +62,7 @@ Launch the interactive demo:
 python demo.py
 ```
 
-Then open [http://localhost:7860](http://localhost:7860) in your browser.
+Then open [http://localhost:7860](http://localhost:7860) or the public link in your browser.
 Upload an audio/video file, select your model & inversion strategy, enter a prompt (e.g. “dog bark”), and click **Run**.
 
 ### 2. Command-Line Interface
@@ -70,56 +70,40 @@ Upload an audio/video file, select your model & inversion strategy, enter a prom
 Separate a single audio file with one command:
 
 ```bash
-python separate.py \
-  --input path/to/mix.wav \
-  --prompt "dog bark" \
-  --model audioldm2-l \
-  --inversion ddim \
-  --output path/to/output.wav
+python separate.py --input examples/BMayJId0X1s_120.wav --target "male speech"
 ```
 
-### 3. Python API
-
-Integrate ZeroSep into your own scripts:
-
-```python
-from zerosep import ZeroSep
-
-zs = ZeroSep(
-    model_name="audioldm2-l",
-    inversion="ddim",
-    guidance_weight=1.0
-)
-
-separated = zs.separate("path/to/mix.wav", prompt="dog bark")
-zs.save(separated, "dog_bark.wav")
-```
-
----
-
-## ⚙️ Configuration
-
-All default settings live in `config.yaml`:
-
-```yaml
-model: audioldm2-l
-inversion: ddim
-guidance_weight: 1.0
-num_steps: 50
-device: cuda
-```
-
-Override any option via CLI flags or by editing this file.
-
----
-
-## 📁 Examples
-
-In the `examples/` folder you’ll find sample mixtures and YAML configs:
+#### Complete Example with All Parameters
 
 ```bash
-python separate.py --config examples/music_example.yaml
+python separate.py --input examples/BMayJId0X1s_120.wav \
+                   --target "male speech" \
+                   --source "man talking with background music" \
+                   --model "cvssp/audioldm-s-full-v2" \
+                   --mode "ddpm" \
+                   --steps 50 \
+                   --tstart 50 \
+                   --seed 42 \
+                   --target_guidance 1.0 \
+                   --source_guidance 1.0 \
+                   --output_dir results \
+                   --output_name "extracted_speech"
 ```
+
+#### Parameter Reference
+
+| Parameter | Short | Description | Default |
+|-----------|-------|-------------|---------|
+| `--input` | `-i` | Input audio file | Required |
+| `--target` | `-t` | Sound to extract | Required |
+| `--source` | `-s` | Source description | "" |
+| `--model` | `-m` | Diffusion model | "cvssp/audioldm-s-full-v2" |
+| `--mode` | | Separation algorithm | "ddpm" |
+| `--steps` | | Diffusion steps | 50 |
+| `--tstart` | | Start timestep | Same as steps |
+| `--target_guidance` | | Target CFG scale | 1.0 |
+| `--source_guidance` | | Source CFG scale | 1.0 |
+| `--output_dir` | `-o` | Output directory | "results" |
 
 ---
 

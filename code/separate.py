@@ -6,8 +6,10 @@ import time
 import torch
 import torchaudio
 import warnings
-import wandb
+import sys
+import numpy as np
 from torch import inference_mode
+from pathlib import Path
 
 from ddm_inversion.inversion_utils import inversion_forward_process, inversion_reverse_process
 from ddm_inversion.ddim_inversion import ddim_inversion, text2image_ldm_stable
@@ -15,203 +17,274 @@ from models import load_model
 from utils import set_reproducability, load_audio, get_spec
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Run text-based audio source separation.')
-    parser.add_argument("--device_num", type=int, default=0, help="GPU device number")
-    parser.add_argument('-s', "--seed", type=int, default=None, help="Random seed for reproducibility")
-    parser.add_argument("--model_id", type=str, choices=["cvssp/audioldm-s-full-v2",
-                                                         "cvssp/audioldm-l-full",
-                                                         "cvssp/audioldm2",
-                                                         "cvssp/audioldm2-large",
-                                                         "cvssp/audioldm2-music",
-                                                         'declare-lab/tango-full-ft-audio-music-caps',
-                                                         'declare-lab/tango-full-ft-audiocaps'
-                                                         ],
-                        default="cvssp/audioldm2-music", help='Audio diffusion model to use')
+# --- Debug helper: write messages to console ---
+def write_debug(message):
+    print(message)
+    sys.stdout.flush()
 
-    parser.add_argument("--init_aud", type=str, required=True, help='Audio mixture to separate sources from')
-    parser.add_argument("--cfg_src", type=float, nargs='+', default=[3],
-                        help='Classifier-free guidance strength for forward process')
-    parser.add_argument("--cfg_tar", type=float, nargs='+', default=[12],
-                        help='Classifier-free guidance strength for reverse process')
-    parser.add_argument("--num_diffusion_steps", type=int, default=50,
-                        help="Number of diffusion steps. TANGO and AudioLDM2 are recommended to be used with 200 steps"
-                             ", while AudioLDM is recommeneded to be used with 100 steps")
-    parser.add_argument("--target_prompt", type=str, nargs='+', default=[""], required=True,
-                        help="Prompt to accompany the reverse process. Should describe the target sound to separate.")
-    parser.add_argument("--source_prompt", type=str, nargs='+', default=[""],
-                        help="Prompt to accompany the forward process. Should describe the original mixture.")
-    parser.add_argument("--target_neg_prompt", type=str, nargs='+', default=[""],
-                        help="Negative prompt to accompany the inversion and generation process")
-    parser.add_argument("--tstart", type=int, nargs='+', default=[100],
-                        help="Diffusion timestep to start the reverse process from. Controls separation strength.")
-    parser.add_argument("--results_path", type=str, default="results", help="path to dump results")
 
-    parser.add_argument("--cutoff_points", type=float, nargs='*', default=None)
-    parser.add_argument("--mode", default="ours", choices=['ours', 'ddim'],
-                        help="Run our separation or DDIM inversion based separation.")
-    parser.add_argument("--fix_alpha", type=float, default=0.1)
-
-    parser.add_argument('--wandb_name', type=str, default=None)
-    parser.add_argument('--wandb_group', type=str, default=None)
-    parser.add_argument('--wandb_disable', action='store_true', default=True)
-
+def main():
+    """Main function for command-line audio source separation"""
+    # Define command-line arguments with more user-friendly descriptions and defaults
+    parser = argparse.ArgumentParser(
+        description='ZeroSep: Zero-Shot Audio Source Separation using Text Prompts.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    
+    # Input/output arguments
+    parser.add_argument("--input", "-i", type=str, required=True, 
+                        help='Audio file to separate sources from')
+    parser.add_argument("--output_dir", "-o", type=str, default="results", 
+                        help='Directory to save results')
+    parser.add_argument("--output_name", type=str, default=None,
+                        help='Custom name for output file (defaults to automatic naming)')
+                        
+    # Prompt arguments
+    parser.add_argument("--target", "-t", type=str, required=True,
+                        help="Target prompt describing the sound you want to extract (e.g., 'drums', 'male speech')")
+    parser.add_argument("--source", "-s", type=str, default="",
+                        help="Source prompt describing the original mixture (optional)")
+    
+    # Model arguments
+    parser.add_argument("--model", "-m", type=str, 
+                        choices=["cvssp/audioldm-s-full-v2", "cvssp/audioldm-l-full",
+                                 "cvssp/audioldm2", "cvssp/audioldm2-large",
+                                 "cvssp/audioldm2-music", "declare-lab/tango-full-ft-audio-music-caps",
+                                 "declare-lab/tango-full-ft-audiocaps"],
+                        default="cvssp/audioldm-s-full-v2", 
+                        help='Audio diffusion model to use')
+    parser.add_argument("--mode", choices=['ddpm', 'ddim'], default="ddpm",
+                        help="Separation mode: our DDPM approach (default) or DDIM inversion")
+    
+    # Diffusion process parameters
+    parser.add_argument("--steps", type=int, default=50,
+                        help="Number of diffusion steps")
+    parser.add_argument("--tstart", type=int, default=None,
+                        help="Start timestep for reverse process (defaults to same as steps)")
+    parser.add_argument("--seed", type=int, default=42, 
+                        help="Random seed for reproducibility")
+    parser.add_argument("--target_guidance", type=float, default=1.0,
+                        help='Classifier-free guidance strength for target prompt (reverse process)')
+    parser.add_argument("--source_guidance", type=float, default=1.0,
+                        help='Classifier-free guidance strength for source prompt (forward process)')
+    
+    # Device selection
+    parser.add_argument("--device", type=int, default=0, 
+                        help="GPU device number to use")
+    
+    # Advanced parameters (hidden from help by default)
+    parser.add_argument("--fix_alpha", type=float, default=0.1, help=argparse.SUPPRESS)
+    parser.add_argument("--eta", type=float, default=1.0, help=argparse.SUPPRESS)
+    parser.add_argument("--wandb_disable", action="store_true", default=True, help=argparse.SUPPRESS)
+    
     args = parser.parse_args()
-    args.eta = 1.
-    args.numerical_fix = True
-    args.test_rand_gen = False
-
+    
+    # Set t_start to match steps if not specified
+    if args.tstart is None:
+        args.tstart = args.steps
+    
+    # Ensure tstart doesn't exceed steps
+    args.tstart = min(args.tstart, args.steps)
+    
+    # Convert to format expected by processing functions
+    tstart_tensor = torch.tensor([args.tstart], dtype=torch.int)
+    skip = args.steps - args.tstart
+    
+    # Set up device
+    device = f"cuda:{args.device}" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        torch.cuda.set_device(args.device)
+    write_debug(f"Using device: {device}")
+    
+    # Set reproducability
+    write_debug(f"Setting seed: {args.seed}")
     set_reproducability(args.seed, extreme=False)
-    device = f"cuda:{args.device_num}"
-    torch.cuda.set_device(args.device_num)
-
-    model_id = args.model_id
-    cfg_scale_src = args.cfg_src
-    cfg_scale_tar = args.cfg_tar
-
-    # same output
-    current_GMT = time.gmtime()
-    time_stamp_name = calendar.timegm(current_GMT)
-    if args.mode == 'ours':
-        image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-            f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-            f'skip_{int(args.num_diffusion_steps) - int(args.tstart[0])}_{time_stamp_name}'
-    else:
-        if args.tstart != args.num_diffusion_steps:
-            image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-                f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-                f'skip_{int(args.num_diffusion_steps) - int(args.tstart[0])}_{time_stamp_name}'
-        else:
-            image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-                f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-                f'{args.num_diffusion_steps}timesteps_{time_stamp_name}'
-
-    wandb.login(key='')
-    wandb_run = wandb.init(project="AudInv", entity='', config={},
-                           name=args.wandb_name if args.wandb_name is not None else image_name_png,
-                           group=args.wandb_group,
-                           mode='disabled' if args.wandb_disable else 'online',
-                           settings=wandb.Settings(_disable_stats=True))
-    wandb.config.update(args)
-
-    eta = args.eta  # = 1
-    if len(args.tstart) != len(args.target_prompt):
-        if len(args.tstart) == 1:
-            args.tstart *= len(args.target_prompt)
-        else:
-            raise ValueError("T-start amount and target prompt amount don't match.")
-    args.tstart = torch.tensor(args.tstart, dtype=torch.int)
-    skip = args.num_diffusion_steps - args.tstart
-
-    ldm_stable = load_model(model_id, device, args.num_diffusion_steps)
-    x0, sr, duration = load_audio(args.init_aud, ldm_stable.get_fn_STFT(), device=device,
-                                 stft=True, model_sr=ldm_stable.get_sr())
-    torch.cuda.empty_cache()
+    
+    # Load model
+    write_debug(f"Loading model: {args.model}")
+    ldm_stable = load_model(args.model, device, args.steps)
+    write_debug("Model loaded successfully.")
+    
+    # Load audio
+    write_debug(f"Loading audio from: {args.input}")
+    x0, sr, duration = load_audio(
+        args.input, 
+        ldm_stable.get_fn_STFT(), 
+        device=device,
+        stft=True, 
+        model_sr=ldm_stable.get_sr()
+    )
+    write_debug(f"Audio loaded. Shape: {x0.shape}, Sample rate: {sr}, Duration: {duration}s")
+    
+    # Prepare prompts in the format expected by functions
+    target_prompt = [args.target.strip()]
+    source_prompt = [args.source.strip()] if args.source.strip() != "" else [""]
+    
+    # Process the audio
     with inference_mode():
+        # Encode input audio to latent space
+        write_debug("Encoding audio into latent space...")
         w0 = ldm_stable.vae_encode(x0)
-
-        # find Zs and wts - forward process
+        
+        # Process based on mode
         if args.mode == "ddim":
-            if len(cfg_scale_src) > 1:
-                raise ValueError("DDIM only supports one cfg_scale_src value")
-            wT = ddim_inversion(ldm_stable, w0, args.source_prompt, cfg_scale_src[0],
-                                num_inference_steps=args.num_diffusion_steps, skip=skip[0])
-        else:
-            wt, zs, wts, extra_info = inversion_forward_process(
-                ldm_stable, w0, etas=eta,
-                prompts=args.source_prompt, cfg_scales=cfg_scale_src,
-                prog_bar=True,
-                num_inference_steps=args.num_diffusion_steps,
-                cutoff_points=args.cutoff_points,
-                numerical_fix=args.numerical_fix,
-                duration=duration)
-
-        # iterate over decoder prompts
-        save_path = os.path.join(f'./{args.results_path}/',
-                                 model_id.split('/')[1],
-                                 os.path.basename(args.init_aud).split('.')[0],
-                                 'src_' + "__".join([x.replace(" ", "_") for x in args.source_prompt]),
-                                 'dec_' + "__".join([x.replace(" ", "_") for x in args.target_prompt]) +
-                                 "__neg__" + "__".join([x.replace(" ", "_") for x in args.target_neg_prompt]))
-        os.makedirs(save_path, exist_ok=True)
-
-        if args.mode == "ddpm":
-            # reverse process (via Zs and wT)
-            w0, _ = inversion_reverse_process(ldm_stable,
-                                              xT=wts if not args.test_rand_gen else torch.randn_like(wts),
-                                              tstart=args.tstart,
-                                              fix_alpha=args.fix_alpha,
-                                              etas=eta, prompts=args.target_prompt,
-                                              neg_prompts=args.target_neg_prompt,
-                                              cfg_scales=cfg_scale_tar, prog_bar=True,
-                                              zs=zs[:int(args.num_diffusion_steps - min(skip))]
-                                              if not args.test_rand_gen else torch.randn_like(
-                                                  zs[:int(args.num_diffusion_steps - min(skip))]),
-                                              #   zs=zs[skip:],
-                                              cutoff_points=args.cutoff_points,
-                                              duration=duration,
-                                              extra_info=extra_info)
-        else:  # ddim
+            write_debug("Using DDIM inversion mode...")
+            
+            # Check for unsupported configurations in DDIM mode
             if skip != 0:
-                warnings.warn("Plain DDIM Inversion should be run with t_start == num_diffusion_steps. "
-                              "You are now running partial DDIM inversion.", RuntimeWarning)
-            if len(cfg_scale_tar) > 1:
-                raise ValueError("DDIM only supports one cfg_scale_tar value")
-            if len(args.source_prompt) > 1:
-                raise ValueError("DDIM only supports one args.source_prompt value")
-            if len(args.target_prompt) > 1:
-                raise ValueError("DDIM only supports one args.target_prompt value")
-            w0 = text2image_ldm_stable(ldm_stable, args.target_prompt,
-                                       args.num_diffusion_steps, cfg_scale_tar[0],
-                                       wT,
-                                       skip=skip)
-
-    # vae decode image
-    with inference_mode():
-        x0_dec = ldm_stable.vae_decode(w0)
+                warnings.warn("Plain DDIM Inversion should be run with t_start == steps. "
+                            "You are now running partial DDIM inversion.", RuntimeWarning)
+            
+            # Forward DDIM inversion process
+            write_debug("Starting DDIM inversion forward process...")
+            wT = ddim_inversion(
+                ldm_stable, w0, 
+                source_prompt[0], args.source_guidance,
+                num_inference_steps=args.steps, 
+                skip=skip
+            )
+            write_debug("DDIM inversion forward process complete.")
+            
+            # Reverse DDIM generation process with target prompt
+            write_debug("Starting DDIM text-to-image generation with target prompt...")
+            w0_edited = text2image_ldm_stable(
+                ldm_stable, target_prompt[0],
+                args.steps, args.target_guidance,
+                wT, skip=skip
+            )
+            write_debug("DDIM generation process complete.")
+            
+        else:  # DDPM mode
+            write_debug("Using custom DDPM inversion mode...")
+            
+            # Forward process
+            write_debug("Starting forward inversion process...")
+            wt, zs, wts, extra_info = inversion_forward_process(
+                ldm_stable, w0, 
+                etas=args.eta,
+                prompts=source_prompt, 
+                cfg_scales=[args.source_guidance],
+                prog_bar=True,
+                num_inference_steps=args.steps,
+                cutoff_points=None,
+                numerical_fix=True,
+                duration=duration
+            )
+            write_debug("Forward inversion process complete.")
+            
+            # Reverse process
+            write_debug("Starting separation process with target prompt...")
+            w0_edited, _ = inversion_reverse_process(
+                ldm_stable,
+                xT=wts,
+                tstart=tstart_tensor,
+                fix_alpha=args.fix_alpha,
+                etas=args.eta,
+                prompts=target_prompt,
+                neg_prompts=[""],
+                cfg_scales=[args.target_guidance],
+                prog_bar=True,
+                zs=zs[:int(args.steps - skip)],
+                cutoff_points=None,
+                duration=duration,
+                extra_info=extra_info
+            )
+            write_debug("Separation process complete.")
+        
+        # Decode the edited latent representation
+        write_debug("Decoding edited latent representation...")
+        x0_dec = ldm_stable.vae_decode(w0_edited)
         if x0_dec.dim() < 4:
             x0_dec = x0_dec[None, :, :, :]
-        min_freq_shape = min(x0.shape[2], x0_dec.shape[2])
         with torch.no_grad():
-            audio = ldm_stable.decode_to_mel(x0_dec)
-            orig_audio = ldm_stable.decode_to_mel(x0)
-
-    # same output
-    current_GMT = time.gmtime()
-    time_stamp_name = calendar.timegm(current_GMT)
-    if args.mode == 'ours':
-        image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-            f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-            f'skip_{"-".join([str(x) for x in skip.numpy()])}_{time_stamp_name}'
+            edited_audio_tensor = ldm_stable.decode_to_mel(x0_dec)
+        write_debug("Decoding complete.")
+    
+    # Create output directory if it doesn't exist
+    output_path = make_output_path(
+        args.output_dir, 
+        args.model, 
+        args.input, 
+        args.target, 
+        args.source
+    )
+    os.makedirs(output_path, exist_ok=True)
+    
+    # Generate output filename
+    if args.output_name:
+        filename_base = args.output_name
     else:
-        if skip != 0:
-            image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-                f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-                f'skip_{"-".join([str(x) for x in skip.numpy()])}_{time_stamp_name}'
-        else:
-            image_name_png = f'cfg_e_{"-".join([str(x) for x in cfg_scale_src])}_' + \
-                f'cfg_d_{"-".join([str(x) for x in cfg_scale_tar])}_' + \
-                f'{args.num_diffusion_steps}timesteps_{time_stamp_name}'
-
-    save_full_path_spec = os.path.join(save_path, image_name_png + ".png")
-    save_full_path_wave = os.path.join(save_path, image_name_png + ".wav")
-    save_full_path_origwave = os.path.join(save_path, "orig.wav")
-
+        # Create a descriptive filename
+        current_time = calendar.timegm(time.gmtime())
+        filename_base = (
+            f"{Path(args.input).stem}_{args.target.replace(' ', '_')}"
+            f"_{args.mode}_g{args.target_guidance}_{current_time}"
+        )
+    
+    # Save the output files
+    spec_path = os.path.join(output_path, f"{filename_base}_spec.png")
+    wav_path = os.path.join(output_path, f"{filename_base}.wav")
+    orig_wav_path = os.path.join(output_path, "original.wav")
+    params_path = os.path.join(output_path, f"{filename_base}_params.txt")
+    
+    # Save spectrogram visualization
     if x0_dec.shape[2] > x0_dec.shape[3]:
-        x0_dec = x0_dec[0, 0].T.cpu().detach().numpy()
-        x0 = x0[0, 0].T.cpu().detach().numpy()
+        x0_dec_vis = x0_dec[0, 0].T.cpu().detach().numpy()
+        x0_vis = x0[0, 0].T.cpu().detach().numpy()
     else:
-        x0_dec = x0_dec[0, 0].cpu().detach().numpy()
-        x0 = x0[0, 0].cpu().detach().numpy()
-    plt.imsave(save_full_path_spec, x0_dec)
-    torchaudio.save(save_full_path_wave, audio, sample_rate=sr)
-    torchaudio.save(save_full_path_origwave, orig_audio, sample_rate=sr)
+        x0_dec_vis = x0_dec[0, 0].cpu().detach().numpy()
+        x0_vis = x0[0, 0].cpu().detach().numpy()
+    plt.imsave(spec_path, x0_dec_vis)
+    
+    # Save audio files
+    torchaudio.save(wav_path, edited_audio_tensor, sample_rate=sr)
+    with torch.no_grad():
+        original_audio = ldm_stable.decode_to_mel(x0)
+    torchaudio.save(orig_wav_path, original_audio, sample_rate=sr)
+    
+    # Save parameters used for reproducibility
+    save_parameters(params_path, vars(args))
+    
+    write_debug(f"\n✅ Separation complete!")
+    write_debug(f"Output saved to: {output_path}")
+    write_debug(f"Audio file: {wav_path}")
+    write_debug(f"Original audio file: {orig_wav_path}")
+    write_debug(f"Spectrogram visualization: {spec_path}")
+    write_debug(f"Parameter log: {params_path}")
 
-    if not args.wandb_disable:
-        logging_dict = {'orig': wandb.Audio(orig_audio.squeeze(), caption='orig', sample_rate=sr),
-                        'orig_spec': wandb.Image(x0, caption='orig'),
-                        'gen': wandb.Audio(audio[0].squeeze(), caption=image_name_png, sample_rate=sr),
-                        'gen_spec': wandb.Image(x0_dec, caption=image_name_png)}
-        wandb.log(logging_dict)
 
-    wandb_run.finish()
+def make_output_path(base_dir, model, input_path, target, source):
+    """Create a structured output path based on inputs"""
+    # Extract model name without organization prefix
+    model_name = model.split('/')[-1]
+    
+    # Get input file basename
+    input_name = Path(input_path).stem
+    
+    # Create directory structure
+    output_dir = os.path.join(
+        base_dir,
+        model_name,
+        input_name,
+        f"target_{target.replace(' ', '_')}"
+    )
+    
+    # Add source to path if provided
+    if source:
+        output_dir = os.path.join(output_dir, f"source_{source.replace(' ', '_')}")
+        
+    return output_dir
+
+
+def save_parameters(filepath, params):
+    """Save parameters used for the separation to a text file"""
+    with open(filepath, 'w') as f:
+        f.write("ZeroSep Audio Separation Parameters\n")
+        f.write("==================================\n\n")
+        for key, value in params.items():
+            f.write(f"{key}: {value}\n")
+        f.write(f"\nRun date: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+
+
+if __name__ == "__main__":
+    main()

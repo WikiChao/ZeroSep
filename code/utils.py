@@ -4,10 +4,14 @@ import wandb
 import numpy as np
 import torch
 import random
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, NamedTuple
 from models import PipelineWrapper
 import torchaudio
 
+class PromptEmbeddings(NamedTuple):
+    embedding_hidden_states: torch.Tensor
+    embedding_class_lables: torch.Tensor
+    boolean_prompt_mask: torch.Tensor
 
 
 def get_spec(wav: torch.Tensor, fn_STFT: torch.nn.Module) -> torch.Tensor:
@@ -168,3 +172,19 @@ def plot_corrs(args, corrs: List[np.array], in_corrs: List[List[torch.Tensor]],
             xs=np.arange(args.iters - 1), ys=ev_in_corrs,
             keys=np.arange(args.drift_start, args.drift_start - len(in_corrs), -1),
             title=f"Subspace iterations correlations PC#{ev_num + 1}", xname="iter")
+
+def get_text_embeddings(target_prompt: List[str], target_neg_prompt: List[str], ldm_stable: PipelineWrapper
+                        ) -> Tuple[torch.Tensor, PromptEmbeddings, PromptEmbeddings]:
+    text_embeddings_hidden_states, text_embeddings_class_labels, text_embeddings_boolean_prompt_mask = \
+        ldm_stable.encode_text(target_prompt)
+    uncond_embedding_hidden_states, uncond_embedding_class_lables, uncond_boolean_prompt_mask = \
+        ldm_stable.encode_text(target_neg_prompt)
+
+    text_emb = PromptEmbeddings(embedding_hidden_states=text_embeddings_hidden_states,
+                                boolean_prompt_mask=text_embeddings_boolean_prompt_mask,
+                                embedding_class_lables=text_embeddings_class_labels)
+    uncond_emb = PromptEmbeddings(embedding_hidden_states=uncond_embedding_hidden_states,
+                                  boolean_prompt_mask=uncond_boolean_prompt_mask,
+                                  embedding_class_lables=uncond_embedding_class_lables)
+
+    return text_embeddings_class_labels, text_emb, uncond_emb
