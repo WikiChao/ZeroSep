@@ -49,6 +49,9 @@ No fine-tuning, no task-specific data—just latent inversion + text-conditioned
    ```bash
    huggingface-cli login
    ```
+5.**(If using tango)**
+  download tango model from https://github.com/declare-lab/tango
+  and put them into /code folder
 
 ---
 
