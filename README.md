@@ -7,11 +7,8 @@ ZeroSep is a **training-free** audio source separation framework that repurposes
 No fine-tuning, no task-specific data—just latent inversion + text-conditioned denoising to isolate **any** sound you describe.
 
 <div align="center">
-  <video width="100%" controls>
-    <source src="assets/zerosep_demo.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
-  <p><i>Demo video: ZeroSep separating speech from a music-speech mix with a simple text prompt.</i></p>
+  [![Demo video – click to play](assets/thumb.png)](assets/demo_v2.mp4)
+  <p><i>Demo video: ZeroSep separates speech from a music-speech mix with a simple text prompt.</i></p>
 </div>
 
 ---
