@@ -7,8 +7,10 @@ ZeroSep is a **training-free** audio source separation framework that repurposes
 No fine-tuning, no task-specific data—just latent inversion + text-conditioned denoising to isolate **any** sound you describe.
 
 <div align="center">
-  [![Demo video – click to play](assets/thumb.png)](assets/demo_v2.mp4)
-  <p><i>Demo video: ZeroSep separates speech from a music-speech mix with a simple text prompt.</i></p>
+  <a href="https://www.youtube.com/watch?v=0t9nA1EUFrQ" target="_blank">
+    <img src="https://img.youtube.com/vi/0t9nA1EUFrQ/0.jpg" alt="ZeroSep Demo" width="600">
+  </a>
+  <p><i>Demo video: ZeroSep separates speech from a mix with a simple text prompt.</i></p>
 </div>
 
 ---
@@ -59,6 +61,7 @@ No fine-tuning, no task-specific data—just latent inversion + text-conditioned
 Launch the interactive demo:
 
 ```bash
+cd code
 python demo.py
 ```
 
@@ -70,14 +73,15 @@ Upload an audio/video file, select your model & inversion strategy, enter a prom
 Separate a single audio file with one command:
 
 ```bash
-python separate.py --input examples/BMayJId0X1s_120.wav --target "male speech"
+cd code
+python separate.py --input examples/BMayJId0X1s_120.wav --target "man speech"
 ```
 
 #### Complete Example with All Parameters
 
 ```bash
 python separate.py --input examples/BMayJId0X1s_120.wav \
-                   --target "male speech" \
+                   --target "man speech" \
                    --source "man talking with background music" \
                    --model "cvssp/audioldm-s-full-v2" \
                    --mode "ddpm" \
@@ -105,6 +109,10 @@ python separate.py --input examples/BMayJId0X1s_120.wav \
 | `--source_guidance` | | Source CFG scale | 1.0 |
 | `--output_dir` | `-o` | Output directory | "results" |
 
+## 🎵 Examples
+
+We've included several sample video/audio files in the `examples` folder to help you get started.
+
 ---
 
 ## 📖 Citation
@@ -122,15 +130,20 @@ If you use ZeroSep, please cite our paper:
 
 ---
 
-## 📜 License
+## 🙏 Acknowledgments
+
+This work would not have been possible without the contributions of several outstanding projects:
+
+* **AudioLDM** & **AudioLDM2** (Liu et al.) for providing the foundational diffusion model architectures
+* **Tango** (Ghosal et al.) for their audio generation framework and model support
+* **Gradio** team for their excellent interactive UI framework enabling our demo
+* [**AudioEditingCode**](https://github.com/HilaManor/AudioEditingCode) by Manor et al. - Our implementation builds substantially upon their codebase. We sincerely appreciate their work and encourage supporting their repository.
+
+### Licensing Information
+* Code adapted from [**AudioEditingCode**](https://github.com/HilaManor/AudioEditingCode), including inversion and forward processes, is used under their MIT license.
+* AudioLDM and AudioLDM2 models are licensed under a [Creative Commons Attribution-ShareAlike 4.0 International License][cc-by-sa]. Any use of these model weights is subject to the same license terms.
+* All other original code in this repository is released under the MIT license.
 
 This project is licensed under the **MIT License** – see [LICENSE](LICENSE) for details.
 
----
-
-## 🙏 Acknowledgments
-
-* **AudioLDM** & **AudioLDM2** (Liu et al.) for the diffusion backbones
-* **Tango** (Ghosal et al.) for additional model support
-* **Gradio** for the user-friendly web UI
-* [**AudioEditingCode**](https://github.com/HilaManor/AudioEditingCode) - Our work is heavily built upon their implementation. Please consider giving their repository a star as well!
+[cc-by-sa]: http://creativecommons.org/licenses/by-sa/4.0/

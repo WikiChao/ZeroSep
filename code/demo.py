@@ -323,20 +323,16 @@ def process_media(
         write_debug("Error in process_media: " + str(e))
         return None, None, f"❌ Error: {str(e)}"
 
-# Function to get proper example file paths
 def get_example_file_path(filename):
-    # Starting from the script directory, go up one level, then to examples
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir   = os.path.dirname(os.path.abspath(__file__))
     examples_dir = os.path.join(os.path.dirname(script_dir), "examples")
-    file_path = os.path.join(examples_dir, filename)
-    
-    # Debug log about the file path
-    if os.path.exists(file_path):
-        write_debug(f"Found example file: {file_path}")
+    fp = os.path.join(examples_dir, filename)
+    if os.path.isfile(fp):
+        write_debug(f"Found example file: {fp}")
+        return fp
     else:
-        write_debug(f"Warning: Example file not found: {file_path}")
-        
-    return file_path
+        write_debug(f"Warning: Example file not found: {fp}")
+        return None   # ← return None, not ""
 
 # Add this function after your existing functions
 def load_with_demo_audio(target, source, model, tstart, steps, t_guidance, s_guidance, mode, demo_file):
@@ -349,16 +345,20 @@ def load_with_demo_audio(target, source, model, tstart, steps, t_guidance, s_gui
     ]
 
 # Example data for demonstration - using relative paths
-examples = [
-    # Format: [video_file, audio_file, target_prompt, source_prompt, model_id, tstart, seed, steps, target_guidance, source_guidance, mode]
-    
+audio_examples = [
     # Example 1: Extract speech from background noise
-    [None, get_example_file_path("BMayJId0X1s_120.wav"), 
-     "", "male speech", 
+    [get_example_file_path("BMayJId0X1s_120.wav"), 
+     "man speech", "", 
      "cvssp/audioldm-s-full-v2", 50, DEFAULT_SEED, 50, 1.0, 1.0, "ddpm"],
 
 ]
 
+video_examples = [
+    # Example 1: Extract speech from background noise
+    [get_example_file_path("Barack Obama's speech to graduates.mp4"), 
+     "man speech", "", 
+     "cvssp/audioldm-s-full-v2", 50, DEFAULT_SEED, 50, 1.0, 1.0, "ddpm"],
+]
 
 # Function to update tstart maximum based on num_diffusion_steps
 def update_tstart_slider(num_steps):
@@ -528,6 +528,42 @@ with gr.Blocks(css=custom_css, theme=gr.themes.Soft()) as demo:
             ],
             outputs=[audio_output, video_output, status_text]
         )
+
+    # Audio-only examples block
+    gr.Examples(
+        examples=audio_examples,
+        fn=process_media,
+        inputs=[
+            audio_input,        # only the audio widget
+            target_prompt, source_prompt,
+            model_id, tstart, seed,
+            num_diffusion_steps,
+            target_guidance, source_guidance,
+            mode
+        ],
+        outputs=[audio_output, video_output, status_text],
+        label="🎯 Audio-only demos",
+        examples_per_page=1,
+        run_on_click=True,
+    )
+
+    # Video-only examples block
+    gr.Examples(
+        examples=video_examples,
+        fn=process_media,
+        inputs=[
+            video_input,        # only the video widget
+            target_prompt, source_prompt,
+            model_id, tstart, seed,
+            num_diffusion_steps,
+            target_guidance, source_guidance,
+            mode
+        ],
+        outputs=[audio_output, video_output, status_text],
+        label="🎬 Video-only demos",
+        examples_per_page=1,
+        run_on_click=True,
+    )
 
 write_debug("Launching Gradio interface...")
 demo.launch(share=True)
