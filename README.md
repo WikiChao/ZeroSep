@@ -1,7 +1,7 @@
 # ZeroSep: Separate Anything in Audio with Zero Training
 
-[![Arxiv 2025](https://img.shields.io/badge/Arxiv-2025-blue)]([https://wikichao.github.io/ZeroSep/](https://arxiv.org/abs/2505.23625))  
-[**Project page**](https://wikichao.github.io/ZeroSep/) • [**Paper**](https://wikichao.github.io/ZeroSep/)  
+[![ArXiv 2025](https://img.shields.io/badge/ArXiv-2025-blue)](https://arxiv.org/abs/2505.23625)  
+[**Project page**](https://wikichao.github.io/ZeroSep/) • [**Paper**](https://arxiv.org/pdf/2505.23625)
 
 ZeroSep is a **training-free** audio source separation framework that repurposes pre-trained text-guided diffusion models for zero-shot separation.  
 No fine-tuning, no task-specific data—just latent inversion + text-conditioned denoising to isolate **any** sound you describe.
