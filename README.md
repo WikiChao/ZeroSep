@@ -121,11 +121,11 @@ We've included several sample video/audio files in the `examples` folder to help
 If you use ZeroSep, please cite our paper:
 
 ```bibtex
-@inproceedings{huang2025zerosep,
-  title        = {ZeroSep: Separate Anything in Audio with Zero Training},
-  author       = {Huang, Chao and Ma, Yuesheng and Huang, Junxuan and Liang, Susan and Tang, Yunlong and Bi, Jing and Liu, Wenqiang and Mesgarani, Nima and Xu, Chenliang},
-  booktitle    = {Arxiv},
-  year         = {2025},
+@article{huang2025zerosep,
+  title={ZeroSep: Separate Anything in Audio with Zero Training},
+  author={Huang, Chao and Ma, Yuesheng and Huang, Junxuan and Liang, Susan and Tang, Yunlong and Bi, Jing and Liu, Wenqiang and Mesgarani, Nima and Xu, Chenliang},
+  journal={arXiv preprint arXiv:2505.23625},
+  year={2025}
 }
 ```
 
