@@ -53,9 +53,9 @@ Folder names should include two instrument keywords separated by `+`, such as
 ## Quickstart
 
 ```bash
-python scripts/evaluate_separation.py   --gt /path/to/GT_ROOT   --pred /path/to/PRED_ROOT   --assignment sdr   --nmf-suffix   --save-csv results.csv   --include-encodec
+python scripts/evaluate_separation.py   --gt /path/to/GT_ROOT   --pred /path/to/PRED_ROOT   --direct   --nmf-suffix   --save-csv results.csv   --include-encodec
 ```
-
+- `--direct`: if pred1 -->gt1(pred2 -->gt2), pass --direct; Otherwise, you need to configure 'assignment' below
 - `--assignment`: how to align (`gt1`↔`pred?`, `gt2`↔`pred?`); choose from `sdr`, `lpaps`, or `l2`.
 - `--nmf-suffix`: use this if your predictions are named `pred_1.wav` / `pred_2.wav`.
 - `--include-encodec`: also compute EnCodec encoder embedding losses (L1/L2).
